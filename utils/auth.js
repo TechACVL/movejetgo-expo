@@ -2,6 +2,7 @@ import * as SecureStore from "expo-secure-store";
 import { saveTasks } from '../lib/sqlite';
 import { getApiUrl, getValidAccessToken } from '../utils';
 import WebSocketService from '../services/WebSocketService';
+import { deregisterPushToken } from '../services/NotificationService';
 
 // Global logout callback - will be set by App.js
 let globalLogoutCallback = null;
@@ -107,7 +108,15 @@ export async function performLogout(options = {}) {
       console.log('⚠️ Error disconnecting WebSocket:', error);
     }
 
-    // 3. Delete authentication tokens
+    // 3. Deregister push token from backend
+    try {
+      await deregisterPushToken();
+      console.log('✅ Push token deregistered');
+    } catch (error) {
+      console.log('⚠️ Error deregistering push token:', error);
+    }
+
+    // 4. Delete authentication tokens
     try {
       await SecureStore.deleteItemAsync("accessToken");
       await SecureStore.deleteItemAsync("refreshToken");
@@ -116,7 +125,7 @@ export async function performLogout(options = {}) {
       console.log('⚠️ Error deleting tokens:', error);
     }
 
-    // 4. Clear local database (tasks and other sensitive data)
+    // 5. Clear local database (tasks and other sensitive data)
     try {
       await saveTasks([]);
       console.log('✅ Local database cleared');
@@ -124,7 +133,7 @@ export async function performLogout(options = {}) {
       console.log('⚠️ Error clearing local database:', error);
     }
 
-    // 5. Trigger navigation to login screen via global callback
+    // 6. Trigger navigation to login screen via global callback
     if (globalLogoutCallback) {
       try {
         globalLogoutCallback();

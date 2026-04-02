@@ -16,7 +16,7 @@ import { useTasks } from '../contexts/TasksContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { createThemedStyles } from '../themedStyles';
 
-export default function TasksScreen({ route, navigation }) {
+export default function TasksScreen({ route, navigation, pendingNotification, onNotificationHandled }) {
   const { activeTasks, loading, fetchTasks, updateTask } = useTasks();
   const { theme } = useTheme();
   const styles = createThemedStyles(theme);
@@ -39,6 +39,21 @@ export default function TasksScreen({ route, navigation }) {
       }
     }
   }, [route?.params?.highlightTask, activeTasks, navigation]);
+
+  // Handle push notification tap — open the relevant task modal
+  useEffect(() => {
+    if (pendingNotification && activeTasks.length > 0) {
+      const taskId = pendingNotification.taskId || pendingNotification.TaskRecord_ID;
+      if (taskId) {
+        const task = activeTasks.find(t => t.TaskRecord_ID === taskId);
+        if (task) {
+          setSelectedTask(task);
+          setShowTaskModal(true);
+        }
+      }
+      if (onNotificationHandled) onNotificationHandled();
+    }
+  }, [pendingNotification, activeTasks]);
 
   const handleTaskPress = (task) => {
     setSelectedTask(task);

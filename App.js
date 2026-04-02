@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Image, Platform, UIManager, View } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { NavigationContainer } from "@react-navigation/native";
@@ -18,6 +18,12 @@ import { TasksProvider } from './contexts/TasksContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { WebSocketProvider } from './contexts/WebSocketContext';
 import { setLogoutCallback } from './utils/auth';
+import {
+  registerForPushNotifications,
+  registerTokenWithBackend,
+  setupNotificationTapListener,
+  getInitialNotification,
+} from './services/NotificationService';
 
 // Import logo assets
 const LOGO_LIGHT = require('./assets/move_Jet.png');
@@ -31,7 +37,7 @@ if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental
 /* ---------------- Tabs ---------------- */
 const Tab = createBottomTabNavigator();
 
-function MainScreen({ onLogout }) {
+function MainScreen({ onLogout, pendingNotification, onNotificationHandled }) {
   const [uiConfig, setUiConfig] = useState(null);
   const { theme } = useTheme();
 
@@ -94,9 +100,16 @@ function MainScreen({ onLogout }) {
       {tabs.Tasks?.visible && (
         <Tab.Screen
           name="Tasks"
-          component={tabs.Tasks.component}
           options={{ title: tabs.Tasks.label }}
-        />
+        >
+          {(props) => (
+            <tabs.Tasks.component
+              {...props}
+              pendingNotification={pendingNotification}
+              onNotificationHandled={onNotificationHandled}
+            />
+          )}
+        </Tab.Screen>
       )}
       {tabs.Calendar?.visible && (
         <Tab.Screen
@@ -125,8 +138,10 @@ function MainScreen({ onLogout }) {
 /* ---------------- Root App ---------------- */
 export default function App() {
   const [loggedIn, setLoggedIn] = useState(false);
+  // Holds data from a tapped push notification so TasksScreen can open the right task
+  const [pendingNotification, setPendingNotification] = useState(null);
 
-  // Initialize API config from cache on app startup (uses appConfig structure as defaults)
+  // Initialize API config from cache on app startup
   useEffect(() => {
     const init = async () => {
       await initializeApiConfig();
@@ -139,23 +154,49 @@ export default function App() {
     setLogoutCallback(handleLogout);
   }, []);
 
+  // Set up push notification tap listener + check for notification that launched the app
+  useEffect(() => {
+    // App was already running when notification was tapped
+    const cleanup = setupNotificationTapListener((data) => {
+      console.log('📲 Notification tap received in App.js:', data);
+      setPendingNotification(data);
+    });
+
+    // App was launched by tapping a notification (was closed/killed)
+    getInitialNotification().then((data) => {
+      if (data) setPendingNotification(data);
+    });
+
+    return cleanup;
+  }, []);
+
   // Called when login completes successfully
   const handleLogin = async () => {
     setLoggedIn(true);
-    
-    // Fetch fresh appConfig after successful login to override defaults
+
+    // Fetch fresh appConfig after successful login
     try {
       console.log('🔄 Fetching fresh appConfig after login...');
       await fetchAppConfig();
       console.log('✅ Fresh appConfig fetched successfully');
     } catch (error) {
       console.log('⚠️ Error fetching fresh appConfig after login:', error);
-      // Continue with appConfig defaults
+    }
+
+    // Register device for push notifications
+    try {
+      const token = await registerForPushNotifications();
+      if (token) {
+        await registerTokenWithBackend(token);
+      }
+    } catch (error) {
+      console.log('⚠️ Push notification registration error (non-critical):', error);
     }
   };
 
   const handleLogout = () => {
     setLoggedIn(false);
+    setPendingNotification(null);
   };
 
   return (
@@ -164,7 +205,14 @@ export default function App() {
         <TasksProvider loggedIn={loggedIn}>
           <WebSocketProvider loggedIn={loggedIn}>
             <NavigationContainer>
-              {loggedIn ? <MainScreen onLogout={handleLogout} /> : <LoginScreen onLogin={handleLogin} />}
+              {loggedIn
+                ? <MainScreen
+                    onLogout={handleLogout}
+                    pendingNotification={pendingNotification}
+                    onNotificationHandled={() => setPendingNotification(null)}
+                  />
+                : <LoginScreen onLogin={handleLogin} />
+              }
             </NavigationContainer>
           </WebSocketProvider>
         </TasksProvider>

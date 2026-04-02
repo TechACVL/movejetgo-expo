@@ -54,6 +54,9 @@ const DEFAULT_API_CONFIG = {
     REFRESH_TOKEN: "/refresh-token",
     PERFORM_LOGOUT: "/agentactive", // Agent activity tracking on logout
 
+    // Push notification token registration
+    REGISTER_PUSH_TOKEN: "/register-push-token",
+
     // Task/Move endpoints
     GET_TASKS: "/server/subcontmovejetgo",
     UPDATE_STATUS: "/server/subcontmovejetgo/update-subcont-moves",
@@ -109,7 +112,7 @@ export function getApiUrl(endpointKey) {
 
   // Otherwise, determine which base URL to use based on endpoint
   let baseUrl;
-  if (['CHECK_USER', 'LOGIN', 'VERIFY_OTP_LOGIN', 'REFRESH_TOKEN', 'PERFORM_LOGOUT'].includes(endpointKey)) {
+  if (['CHECK_USER', 'LOGIN', 'VERIFY_OTP_LOGIN', 'REFRESH_TOKEN', 'PERFORM_LOGOUT', 'REGISTER_PUSH_TOKEN'].includes(endpointKey)) {
     baseUrl = runtimeApiConfig.AUTH_BASE_URL;
   } else if (['HANDLE_PAYMENT'].includes(endpointKey)) {
     // Payment endpoints use QB_BASE_URL

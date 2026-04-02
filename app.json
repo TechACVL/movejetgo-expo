@@ -18,7 +18,7 @@
       "bundleIdentifier": "com.paulsolomon.movejet",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
-        "UIBackgroundModes": []
+        "UIBackgroundModes": ["remote-notification", "fetch"]
       }
     },
     "android": {
@@ -33,8 +33,10 @@
       "permissions": [
         "RECEIVE_BOOT_COMPLETED",
         "VIBRATE",
-        "USE_FULL_SCREEN_INTENT"
-      ]
+        "USE_FULL_SCREEN_INTENT",
+        "POST_NOTIFICATIONS"
+      ],
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
@@ -50,7 +52,16 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#e63946",
+          "defaultChannel": "movejet-default",
+          "sounds": []
+        }
+      ]
     ],
     "extra": {
       "eas": {
