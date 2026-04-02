@@ -41,3 +41,7 @@ app-example
 # generated native folders
 /ios
 /android
+
+# Firebase credentials — never commit these, use .example files as templates
+google-services.json
+GoogleService-Info.plist

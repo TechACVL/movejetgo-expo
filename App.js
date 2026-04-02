@@ -22,6 +22,8 @@ import {
   registerForPushNotifications,
   registerTokenWithBackend,
   setupNotificationTapListener,
+  setupForegroundMessageListener,
+  setupTokenRefreshListener,
   getInitialNotification,
 } from './services/NotificationService';
 
@@ -154,20 +156,26 @@ export default function App() {
     setLogoutCallback(handleLogout);
   }, []);
 
-  // Set up push notification tap listener + check for notification that launched the app
+  // Set up push notification listeners once on app mount
   useEffect(() => {
-    // App was already running when notification was tapped
-    const cleanup = setupNotificationTapListener((data) => {
+    // Handle notification tap (app open or backgrounded)
+    const cleanupTapListener = setupNotificationTapListener((data) => {
       console.log('📲 Notification tap received in App.js:', data);
       setPendingNotification(data);
     });
 
-    // App was launched by tapping a notification (was closed/killed)
+    // Show banners for FCM messages received while app is in foreground
+    const cleanupForeground = setupForegroundMessageListener();
+
+    // Check if app was launched by tapping a notification (killed state)
     getInitialNotification().then((data) => {
       if (data) setPendingNotification(data);
     });
 
-    return cleanup;
+    return () => {
+      cleanupTapListener();
+      cleanupForeground();
+    };
   }, []);
 
   // Called when login completes successfully
@@ -183,11 +191,13 @@ export default function App() {
       console.log('⚠️ Error fetching fresh appConfig after login:', error);
     }
 
-    // Register device for push notifications
+    // Register device for FCM push notifications
     try {
-      const token = await registerForPushNotifications();
-      if (token) {
-        await registerTokenWithBackend(token);
+      const fcmToken = await registerForPushNotifications();
+      if (fcmToken) {
+        await registerTokenWithBackend(fcmToken);
+        // Listen for token refreshes (Firebase may rotate the token)
+        setupTokenRefreshListener();
       }
     } catch (error) {
       console.log('⚠️ Push notification registration error (non-critical):', error);
